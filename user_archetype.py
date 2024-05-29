@@ -58,8 +58,7 @@ class UserArchetype:
         self.plug_in_soc_pcnt = plug_in_soc_pcnt
         self.soc_requirement_pcnt = soc_requirement_pcnt
         self.charging_duration_hr = charging_duration_hr
-    
-        
+
     def _calculate_plug_out_datetime(self, plug_in_datetime: datetime, plug_out_time: datetime.time) -> datetime:
         """
         Plug in time can be PM and plug out time can also be PM

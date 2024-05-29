@@ -82,6 +82,7 @@ class Simulator:
         self._plot_soc_over_time()
         # self._plot_charge_events()
 
+
 if __name__ == "__main__":
     
     from pathlib import Path
@@ -96,6 +97,6 @@ if __name__ == "__main__":
     for user_config in config:
         users.append(User(**user_config | {"logger": logger}))
     
-    controller = UserController(users)
+    controller = UserController(users[:])
     simulator = Simulator(controller, datetime.now(), (datetime.now() + timedelta(hours=12)), logger=logger)
     simulator.run()

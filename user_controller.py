@@ -71,20 +71,3 @@ class UserController:
                 }
                 _events.append(pd.DataFrame(data).assign(User=user.name))
         return pd.concat(_events)              
-        
-
-if __name__ == "__main__":
-    from pathlib import Path
-    import json
-    import logging
-    logger = logging.getLogger("Controller_Logger")
-
-    config_fp = Path(__file__).parent / "config_json.json"
-    with open(config_fp, "r") as f:
-        config = json.load(f)
-    users = []
-    for user_config in config:
-        users.append(User(**user_config | {"logger": logger}))
-    
-    controller = UserController(users)
-    controller.update_charge_status(datetime.now())

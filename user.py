@@ -1,5 +1,6 @@
 import enum
 import json
+import math
 from datetime import datetime, timedelta
 import logging
 from typing import Optional
@@ -17,7 +18,6 @@ class Event:
     Something that happens to a user at a given time
     where the state of the user is changed
     """
-
     def __init__(
         self, event_type: EventType, soc_pcnt: float, timestamp: datetime
     ) -> None:
@@ -203,6 +203,27 @@ class User(UserArchetype):
             if event.event_type == EventType.REPORT_SOC
         ]
 
+    @property
+    def _calculate_current_charger_kw(self) -> float:
+        """
+        Apply tanh scaling to charger kw based on
+        current charge percentage assuming that listed
+        charger kw is the peak charger kw
+
+        Naive implementation not considering other factors
+        """
+        # Scale the input to range from -2 to 2
+        inverted_charge_pcnt = 100 - self.current_charge_pcnt
+        scaled_input = (inverted_charge_pcnt / 5) - 10
+
+        # Calculate the tanh of the scaled input
+        tanh_output = math.tanh(scaled_input)
+
+        # Scale and shift the output to range from 0.1 to 7
+        charging_power = ((tanh_output + 1) / 2) * (self.charger_kw - 0.1) + 0.1
+
+        return charging_power
+
     def _update_soc(self):
         """
         Calculate current battery percentage based on time
@@ -217,7 +238,7 @@ class User(UserArchetype):
             self.current_time - last_reported_soc.timestamp
         )
         if self.is_charging:
-            should_have_added_kwh = self.charger_kw * (time_since_last_report.total_seconds() / 3600)
+            should_have_added_kwh = self._calculate_current_charger_kw * (time_since_last_report.total_seconds() / 3600)
             self.current_charge_pcnt += 100 * (should_have_added_kwh / self.battery_kwh)
             self.logger.debug(
                 f"{last_reported_soc.soc_pcnt=}, {time_since_last_report=}, {should_have_added_kwh=}, {self.current_charge_pcnt=}"
@@ -234,16 +255,3 @@ class User(UserArchetype):
             Event(EventType.REPORT_SOC, self.current_charge_pcnt, self.current_time)
         )
         self.logger.info(f"Reporting SOC: {self.current_charge_pcnt}")
-
-
-if __name__ == "__main__":
-    from pathlib import Path
-    import json
-
-    config_fp = Path(__file__).parent / "config_json.json"
-    with open(config_fp, "r") as f:
-        config = json.load(f)
-    users = []
-    for user_config in config:
-        params = user_config | {"logger": logging.getLogger(__name__)}
-        users.append(User(**params))
