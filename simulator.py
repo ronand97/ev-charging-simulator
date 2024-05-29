@@ -1,33 +1,59 @@
-# simulator that steps through times
-# defines population size
-# defines user archetypes
-# defines controller
-# simulator should step through time and call controller to tell user archetypes to charge
-# any data that is useful should come back out to the simulator
-
-# this file simulates what happens in the real life
-
-# stretch: simulate what happens not during charging hours ie how much people use their cars
-
-from datetime import datetime, timedelta
-import time
-from user import User
-from user_controller import UserController
-import plotly.express as px
+import json
 import logging
+import math
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 
+import plotly.express as px
+
+from user import User
+from user_controller import UserController
 
 logging.basicConfig(level=logging.INFO)
 
 
 class Simulator:
-    def __init__(self, user_controller: UserController, start_time: datetime, end_time: datetime, logger: Optional[logging.Logger] = None) -> None:
+    def __init__(
+        self, population: int, start_time: datetime, end_time: datetime, logger: Optional[logging.Logger] = None
+    ) -> None:
+        """
+        :param population: int: number of users to simulate
+        """
+        self.population = population
         self.logger = logger or logging.getLogger(__name__)
-        self.user_controller = user_controller
         self.current_time = start_time
         self.end_time = end_time
-        self.hours_delta = (self.end_time - self.current_time).seconds // 3600
+        self._time_delta = end_time - start_time
+        self.user_controller = self._load_population_of_users()
+
+    def _load_population_of_users(self) -> UserController:
+        """
+        eg if we have 1k people we know 40% are regular users, 20% are heavy users etc
+
+        To do this will just do an initial load of the archetypes we have
+        then duplicate them to make up the population as defined by
+        each archetype
+
+        Bit of a messy implementation as ideally we would figure out first
+        how many we need then instantiate that many thus splitting the
+        population creation from the user creation but for now this will do
+        """
+        # initial load of archetypes that we have
+        config_fp = Path(__file__).parent / "config_json.json"
+        with open(config_fp, "r") as f:
+            config = json.load(f)
+        users = []
+        for user_config in config:
+            users.append(User(**user_config | {"logger": self.logger}))
+
+        assert 100 == sum([user.pcnt_population for user in users])  # sanity check
+
+        # duplicate the archetypes to make up the population
+        population = []
+        for user in users:
+            population.extend([user] * math.ceil(self.population * (user.pcnt_population / 100)))
+        return UserController(population)
 
     def _step(self):
         """
@@ -36,24 +62,18 @@ class Simulator:
         self.user_controller.update_soc(self.current_time)
         self.user_controller.update_charge_status(self.current_time)
         self.current_time += timedelta(hours=1)
-    
+
     def _plot_soc_over_time(self) -> None:
         """
         Plot:
         - x: time
-        - y: soc % 
+        - y: soc %
         - color: user
         """
         soc_events = self.user_controller.get_soc_events_df()
-        fig = px.line(
-            data_frame=soc_events,
-            x="Timestamp",
-            y="Charge Percentage",
-            color="User",
-            markers=True
-        )
+        fig = px.line(data_frame=soc_events, x="Timestamp", y="Charge Percentage", color="User", markers=True)
         fig.show()
-    
+
     def _plot_charge_events(self) -> None:
         """
         Plot:
@@ -73,30 +93,16 @@ class Simulator:
 
     def run(self):
         """
-        Runs the simulation
+        Runs the simulation in 15 minute intervals
         """
-        for hour in range(self.hours_delta):
-            self.logger.info(f"Simulating hour {hour+1}/{self.hours_delta}")
+        while self.current_time < self.end_time:
             self._step()
-            time.sleep(.2)
+            self.current_time += timedelta(minutes=15)
         self._plot_soc_over_time()
         # self._plot_charge_events()
 
 
 if __name__ == "__main__":
-    
-    from pathlib import Path
-    import json
-    import logging
-    logger = logging.getLogger()
 
-    config_fp = Path(__file__).parent / "config_json.json"
-    with open(config_fp, "r") as f:
-        config = json.load(f)
-    users = []
-    for user_config in config:
-        users.append(User(**user_config | {"logger": logger}))
-    
-    controller = UserController(users[:])
-    simulator = Simulator(controller, datetime.now(), (datetime.now() + timedelta(hours=12)), logger=logger)
-    simulator.run()
+    sim = Simulator(population=100, start_time=datetime.now(), end_time=datetime.now() + timedelta(days=1))
+    sim.run()

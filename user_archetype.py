@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
 from typing import Optional
 
 
@@ -49,9 +49,7 @@ class UserArchetype:
         plug_in_time_hr = sanitise_str_time(plug_in_time_hr)
         plug_out_time_hr = sanitise_str_time(plug_out_time_hr)
         self.plug_in_datetime = datetime.combine(datetime.now(), plug_in_time_hr)
-        self.plug_out_datetime = self._calculate_plug_out_datetime(
-            self.plug_in_datetime, plug_out_time_hr
-        )
+        self.plug_out_datetime = self._calculate_plug_out_datetime(self.plug_in_datetime, plug_out_time_hr)
         self.target_soc_pcnt = target_soc_pcnt
         self.kwh_per_year = kwh_per_year
         self.kwh_per_plug_in = kwh_per_plug_in
@@ -68,7 +66,9 @@ class UserArchetype:
         """
         plug_in_time = plug_in_datetime.time()
         if plug_out_time < plug_in_time:
-            self.logger.info("Plug out time is earlier than plug-in time. Assuming plug out time references following day")
+            self.logger.info(
+                f"Plug out time is earlier than plug-in time for {self.name}. Assuming plug out time references following day"
+            )
             return datetime.combine(plug_in_datetime.date() + timedelta(days=1), plug_out_time)
         else:
             return datetime.combine(plug_in_datetime.date(), plug_out_time)

@@ -38,23 +38,6 @@ class UserController:
                 user.logger.error(f"Error updating SOC for user {user.name}: {e}")
                 continue
 
-    def get_charge_events_df(self) -> pd.DataFrame:
-        """
-        Returns the charge events for all users as a dataframe
-        for easy analysis
-        """
-        _events: list[pd.DataFrame] = []
-        for user in self.user_archetypes:
-            charge_events = user.return_charge_events()
-            if charge_events:
-                data = {
-                    "Event": [event.event_type.name for event in charge_events],
-                    "Charge Percentage": [event.soc_pcnt for event in charge_events],
-                    "Timestamp": [event.timestamp for event in charge_events]
-                }
-                _events.append(pd.DataFrame(data).assign(User=user.name))
-        return pd.concat(_events)  
-
     def get_soc_events_df(self) -> pd.DataFrame:
         """
         Returns the SOC events for all users as a dataframe
@@ -62,12 +45,12 @@ class UserController:
         """
         _events: list[pd.DataFrame] = []
         for user in self.user_archetypes:
-            soc_events = user.return_soc_events()
+            soc_events = user.event_stream.return_soc_events()
             if soc_events:
                 data = {
                     "Event": [event.event_type.name for event in soc_events],
                     "Charge Percentage": [event.soc_pcnt for event in soc_events],
-                    "Timestamp": [event.timestamp for event in soc_events]
+                    "Timestamp": [event.timestamp for event in soc_events],
                 }
                 _events.append(pd.DataFrame(data).assign(User=user.name))
-        return pd.concat(_events)              
+        return pd.concat(_events)
