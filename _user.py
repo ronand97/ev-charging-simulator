@@ -26,7 +26,7 @@ class User(UserArchetype):
         plug_in_soc_pcnt: float,
         soc_requirement_pcnt: float,
         charging_duration_hr: float,
-        current_time: datetime = datetime.now(),
+        current_time: datetime = None,
         logger: Optional[logging.Logger] = None,
     ):
         """
@@ -54,7 +54,7 @@ class User(UserArchetype):
         )
 
         # state properties
-        self._current_time = current_time
+        self._current_time = current_time if current_time else datetime.now()
         self.event_stream: EventStream = EventStream()
         self.is_charging: bool = False
         self.current_charge_pcnt = self.plug_in_soc_pcnt

@@ -44,11 +44,16 @@ poll each User to:
 parameters; driving-time parameters. I ignored the driving-time parameters.
 - I mainly relied on the plug in/out times; plug in SOC percent; charger kW; battery kWh; and target SOC pcnt
 - I assumed the `Charging duration (hrs)` was not important to an MVP and I'm still unsure what this parameter is
+- I applied a simple tanh scaling to each EV charging curve to make it look more realistic
+
+# Things I didn't do
+- My charging curve plot doesn't work very well. There are some strange lines on it, plus they don't look particularly tanh-y. It would probably be better to plot an aggregation with some whiskers showing the distribution.
+- My plots could have been a bit nicer or more extensive by overlaying the start and stop charging events, or other variables like power draw etc.
+- Any behaviour outside of just charging up to full and stopping (ie discharging, then charging again) is not implemented
+- I have no concept of what day it is and just assumes everyone plugs in every day at the given time (so I didn't use plug-in frequency)
 
 # Other thoughts
 - I mainly spent time on building state-changing functionality within the User Controller and User, because by providing the correct information and state-changing methods it is now quite extensible to any scenario. I think this can be tricky in real life as the "User" can be a dumb object waiting to be told what to do, or it could be a car with in-built controller that can dictate from the charger how much charge it should be given vs the other way round.
-- I've only focused on charging time, but added no functionality based on regular driving. That means the simulator starts, each car battery charges to full, and then nothing else happens.
-- I have no concept of what day it is and just assumes everyone plugs in every day at the given time (so I didn't use plug-in frequency)
 
 # End use
 I thought about how the energy market trading might work. For example
@@ -59,6 +64,9 @@ things that have to happen:
 - Car needs to be able to report on actual power drawn/discharged to
 prove to the markets that you provided that power after the fact
 - Controller controls this behaviour (I believe this is essentially a simple model of how axle manages multiple "Assets" (Users))
+
+All this is easily possible with my setup of the User and User Controller.
+
 
 I generated the plots to aid with choosing energy assets that could be suitable
 for orchestration for energy market trading. By examining charge curves

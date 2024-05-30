@@ -41,10 +41,10 @@ class UserArchetype:
         self.number = number
         self.name = name
         self.pcnt_population = pcnt_population
-        # self.miles_per_year = miles_per_year
+        self.miles_per_year = miles_per_year
         self.battery_kwh = battery_kwh
         self.efficiency_miles_per_kwh = efficiency_miles_per_kwh
-        # self.plug_in_frequency_per_day = plug_in_frequency_per_day
+        self.plug_in_frequency_per_day = plug_in_frequency_per_day
         self.charger_kw = charger_kw
         plug_in_time_hr = sanitise_str_time(plug_in_time_hr)
         plug_out_time_hr = sanitise_str_time(plug_out_time_hr)

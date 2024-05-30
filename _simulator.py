@@ -19,7 +19,7 @@ class Simulator:
         self, population: int, start_time: datetime, end_time: datetime, logger: Optional[logging.Logger] = None
     ) -> None:
         """
-        :param population: int: number of users to simulate
+        :param population: int: number of EVs to simulate
         """
         self.population = population
         self.logger = logger or logging.getLogger(__name__)
@@ -47,22 +47,20 @@ class Simulator:
         users = []
         for user_config in config[:]:
             users.append(User(**user_config | {"logger": self.logger, "current_time": self.current_time}))
-        users = [users[2]]
-        # assert 100 == sum([user.pcnt_population for user in users])  # sanity check
+        assert 100 == sum([user.pcnt_population for user in users])  # sanity check
 
         # duplicate the archetypes to make up the population
         population = []
         for user in users:
             # append a deepcopy of user to the population list by the number of times defined by pcnt_population
             n_users = math.ceil(self.population * (user.pcnt_population / 100))
-            # n_users = 1
             to_add = [copy.deepcopy(user) for _ in range(n_users)]
             population.extend(to_add)
         return UserController(population)
 
     def _step(self):
         """
-        Steps the simulator forward in time by 1 hour
+        Ask the controller to update all the states
         """
         self.user_controller.update_soc(self.current_time)
         self.user_controller.update_charge_status(self.current_time)
@@ -102,13 +100,12 @@ class Simulator:
         )
         fig.show()
 
-    def run(self):
+    def run(self, td: timedelta = timedelta(minutes=1)):
         """
-        Runs the simulation in 15 minute intervals
+        Runs the simulation in time intervals
         """
         while self.current_time < self.end_time:
             self._step()
-            self.current_time += timedelta(hours=1)
+            self.current_time += td
         self._plot_soc_over_time()
         self._plot_population_energy_usage()
-        # self._plot_charge_events()

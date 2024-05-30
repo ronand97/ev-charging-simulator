@@ -1,5 +1,3 @@
-# a file to orchestrate multiple user_archetype instances
-# eg tell them to charge at a certain time
 from datetime import datetime
 
 import pandas as pd
@@ -16,8 +14,6 @@ class UserController:
         Tells user whether to start or stop charging
         """
         for user in self.user_archetypes:
-            if user.name == "Infrequent charging":
-                user.logger.info(f"Current time: {current_time}")
             try:
                 user.current_time = current_time
                 if user.should_be_charging:
@@ -33,8 +29,6 @@ class UserController:
         Updates the SOC of the user
         """
         for user in self.user_archetypes:
-            if user.name == "Infrequent charging":
-                user.logger.info(f"Current time: {current_time}")
             try:
                 user.current_time = current_time
                 user.update_and_report_soc()
