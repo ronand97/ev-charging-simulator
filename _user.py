@@ -1,91 +1,10 @@
-import enum
 import logging
 import math
 from datetime import datetime, timedelta
-from typing import Optional, Union
+from typing import Optional
 
-from user_archetype import UserArchetype
-
-
-class EventType(str, enum.Enum):
-    START_CHARGING = "START_CHARGING"
-    STOP_CHARGING = "STOP_CHARGING"
-    REPORT_SOC = "REPORT_SOC"
-    REPORT_CHARGE_STATUS = "REPORT_CHARGE_STATUS"
-    REPORT_POWER_DRAW = "REPORT_POWER_DRAW"
-
-
-class Event:
-    """
-    Something that happens to a user at a given time
-    where the state of the user is changed
-    """
-
-    def __init__(self, event_type: EventType, timestamp: datetime, **kwargs) -> None:
-        self.event_type = event_type
-        self.timestamp = timestamp
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-
-
-class EventStream:
-    """
-    A stream of events that happen to a user
-    """
-
-    def __init__(self) -> None:
-        self._event_stream: list[Event] = []
-
-    @property
-    def last_reported_soc(self) -> Event:
-        """
-        Returns the last reported SOC event
-        """
-        for event in reversed(self._event_stream):
-            if event.event_type == EventType.REPORT_SOC:
-                return event
-
-    def append(self, event: Event):
-        """
-        append generic event to stream
-        """
-        self._event_stream.append(event)
-
-    def append_start_charging(self, timestamp: datetime, soc_pcnt: float):
-        """
-        append start charging event to stream
-        """
-        self._event_stream.append(Event(EventType.START_CHARGING, timestamp, soc_pcnt=soc_pcnt))
-
-    def append_stop_charging(self, timestamp: datetime, soc_pcnt: float):
-        """
-        append stop charging event to stream
-        """
-        self._event_stream.append(Event(EventType.STOP_CHARGING, timestamp, soc_pcnt=soc_pcnt))
-
-    def append_report_soc(self, timestamp: datetime, soc_pcnt: float):
-        """
-        append report SOC event to stream
-        """
-        self._event_stream.append(Event(EventType.REPORT_SOC, timestamp, soc_pcnt=soc_pcnt))
-
-    def append_report_charge_status(self, timestamp: datetime, is_charging: bool):
-        """
-        append report charge status event to stream
-        """
-        self._event_stream.append(Event(EventType.REPORT_CHARGE_STATUS, timestamp, is_charging=is_charging))
-
-    def append_report_power_draw(self, timestamp: datetime, power_draw_kw: float):
-        """
-        append report power draw event to stream
-        """
-        self._event_stream.append(Event(EventType.REPORT_POWER_DRAW, timestamp, power_draw_kw=power_draw_kw))
-
-    def return_soc_events(self) -> list[Event]:
-        """
-        Returns the SOC events for this user as a list of Event objects
-        """
-        return [event for event in self._event_stream if event.event_type == EventType.REPORT_SOC]
+from _events import Event, EventStream, EventType
+from _user_archetype import UserArchetype
 
 
 class User(UserArchetype):
@@ -107,6 +26,7 @@ class User(UserArchetype):
         plug_in_soc_pcnt: float,
         soc_requirement_pcnt: float,
         charging_duration_hr: float,
+        current_time: datetime = datetime.now(),
         logger: Optional[logging.Logger] = None,
     ):
         """
@@ -134,7 +54,7 @@ class User(UserArchetype):
         )
 
         # state properties
-        self._current_time = datetime.now()  # defaults to now
+        self._current_time = current_time
         self.event_stream: EventStream = EventStream()
         self.is_charging: bool = False
         self.current_charge_pcnt = self.plug_in_soc_pcnt
@@ -172,26 +92,6 @@ class User(UserArchetype):
         self.logger.debug(f"Energy required for target SOC: {target_energy - current_energy}")
         return target_energy - current_energy
 
-    @property
-    def charging_time_required_for_target_soc(self) -> timedelta:
-        """
-        Returns the time required to reach the target state of charge
-        """
-        time_required = timedelta(hours=self.energy_required_for_target_soc / self.charger_kw)
-        self.logger.debug(f"Time required to charge: {time_required}")
-        return time_required
-
-    @property
-    def will_finish_charging_at(self) -> Union[datetime, None]:
-        """
-        Return the time at which the vehicle will finish charging
-        Used for reporting and logging purposes
-        """
-        if not self.is_charging:
-            return None
-        else:
-            return self.current_time + self.charging_time_required_for_target_soc
-
     def start_charging(self):
         """
         Start charging the vehicle
@@ -204,8 +104,6 @@ class User(UserArchetype):
             self.is_charging = True
             self.event_stream.append_start_charging(timestamp=self.current_time, soc_pcnt=self.current_charge_pcnt)
             self.event_stream.append_report_soc(timestamp=self.current_time, soc_pcnt=self.current_charge_pcnt)
-            will_finish_at = self.will_finish_charging_at
-            self.logger.debug(f"{self.name} will finish charging at {will_finish_at}")
 
     def stop_charging(self):
         """
@@ -229,17 +127,12 @@ class User(UserArchetype):
 
         Naive implementation not considering other factors
         """
-        # Scale the input to range from -2 to 2
-        inverted_charge_pcnt = 100 - self.current_charge_pcnt
-        scaled_input = (inverted_charge_pcnt / 5) - 10
+        inverted_charge = 1 - (self.current_charge_pcnt / 100)
+        tanh_output = math.tanh(inverted_charge)
 
-        # Calculate the tanh of the scaled input
-        tanh_output = math.tanh(scaled_input)
-
-        # Scale and shift the output to range from 0.1 to 7
-        charging_power = ((tanh_output + 1) / 2) * (self.charger_kw - 0.1) + 0.1
-
-        return charging_power
+        # tanh operates between -1 and 1, shift between 0 and 1
+        shifted_tanh = 0.5 * (tanh_output + 1)
+        return self.charger_kw * shifted_tanh
 
     def _update_soc(self):
         """

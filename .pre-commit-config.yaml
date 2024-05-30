@@ -1,0 +1,48 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+      - id: end-of-file-fixer
+        stages: [commit, manual]
+      - id: trailing-whitespace
+        stages: [commit, manual]
+      - id: check-case-conflict
+        stages: [commit, manual]
+      - id: check-merge-conflict
+        stages: [commit, manual]
+      - id: check-toml
+        stages: [commit, manual]
+  - repo: https://github.com/psf/black
+    rev: 22.10.0
+    hooks:
+      - id: black
+        language_version: python3.9
+        stages: [commit, manual]
+        args: ["--line-length=120"]
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        name: isort (python)
+        stages: [commit, manual]
+  - repo: https://github.com/pycqa/flake8
+    rev: 3.7.9
+    hooks:
+      - id: flake8
+        stages: [commit, manual]
+        additional_dependencies:
+          - "flake8-bugbear"
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.77.0
+    hooks:
+      - id: terraform_fmt
+        stages: [manual]
+  - repo: local
+    hooks:
+      - id: terraform-fmt
+        name: terraform fmt
+        description: runs terraform fmt
+        entry: terraform fmt -recursive
+        language: system
+        pass_filenames: false
+        stages: [commit]

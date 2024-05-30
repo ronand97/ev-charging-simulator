@@ -4,11 +4,11 @@ from datetime import datetime
 
 import pandas as pd
 
-from user import User
+from _user import User
 
 
 class UserController:
-    def __init__(self, user_archetypes: list) -> None:
+    def __init__(self, user_archetypes: list[User]) -> None:
         self.user_archetypes = user_archetypes
 
     def update_charge_status(self, current_time: datetime) -> None:
@@ -16,6 +16,8 @@ class UserController:
         Tells user whether to start or stop charging
         """
         for user in self.user_archetypes:
+            if user.name == "Infrequent charging":
+                user.logger.info(f"Current time: {current_time}")
             try:
                 user.current_time = current_time
                 if user.should_be_charging:
@@ -31,6 +33,8 @@ class UserController:
         Updates the SOC of the user
         """
         for user in self.user_archetypes:
+            if user.name == "Infrequent charging":
+                user.logger.info(f"Current time: {current_time}")
             try:
                 user.current_time = current_time
                 user.update_and_report_soc()
@@ -54,3 +58,20 @@ class UserController:
                 }
                 _events.append(pd.DataFrame(data).assign(User=user.name))
         return pd.concat(_events)
+
+    def get_energy_usage_per_hour(self) -> pd.DataFrame:
+        """
+        Return dataframe containing the summed energy
+        usage per hour for each user
+        """
+        _events: list[pd.DataFrame] = []
+        for user in self.user_archetypes:
+            power_draw_events = user.event_stream.return_power_draw_events()
+            if power_draw_events:
+                data = {
+                    "Power Draw (kW)": [event.power_draw_kw for event in power_draw_events],
+                    "Timestamp": [event.timestamp for event in power_draw_events],
+                }
+                _events.append(pd.DataFrame(data).assign(User=user.name))
+        df_all = pd.concat(_events)
+        return df_all.set_index("Timestamp").groupby("User").resample("H").sum().drop("User", axis=1).reset_index()
